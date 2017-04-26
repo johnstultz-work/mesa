@@ -57,7 +57,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libhardware \
 	liblog \
 	libcutils \
-	libgralloc_drm \
 	libsync
 
 ifeq ($(BOARD_USES_DRM_GRALLOC),true)
