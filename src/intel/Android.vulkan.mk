@@ -23,10 +23,6 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Makefile.sources
 
-VK_ENTRYPOINTS_SCRIPT := $(MESA_PYTHON2) $(LOCAL_PATH)/vulkan/anv_entrypoints_gen.py
-
-VK_EXTENSIONS_SCRIPT := $(MESA_PYTHON2) $(LOCAL_PATH)/vulkan/anv_extensions_gen.py
-
 VULKAN_COMMON_INCLUDES := \
 	$(MESA_TOP)/include \
 	$(MESA_TOP)/src/mapi \
@@ -52,6 +48,7 @@ LOCAL_MODULE := libmesa_anv_entrypoints
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 intermediates := $(call local-generated-sources-dir)
+prebuilt_intermediates := $(MESA_TOP)/prebuilt-intermediates
 
 LOCAL_C_INCLUDES := \
 	$(VULKAN_COMMON_INCLUDES)
@@ -64,11 +61,9 @@ $(intermediates)/vulkan/dummy.c:
 	@echo "Gen Dummy: $(PRIVATE_MODULE) <= $(notdir $(@))"
 	$(hide) touch $@
 
-$(intermediates)/vulkan/anv_entrypoints.h: $(intermediates)/vulkan/dummy.c
-	$(VK_ENTRYPOINTS_SCRIPT) \
-		--outdir $(dir $@) \
-		--xml $(MESA_TOP)/src/vulkan/registry/vk.xml \
-		--xml $(MESA_TOP)/src/vulkan/registry/vk_android_native_buffer.xml
+$(intermediates)/vulkan/anv_entrypoints.h: $(prebuilt_intermediates)/vulkan/anv_entrypoints.h
+	@mkdir -p $(dir $@)
+	@cp -f $< $@
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := \
         $(intermediates)
@@ -212,6 +207,7 @@ LOCAL_MODULE := libmesa_vulkan_common
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 intermediates := $(call local-generated-sources-dir)
+prebuilt_intermediates := $(MESA_TOP)/prebuilt-intermediates
 
 LOCAL_SRC_FILES := $(VULKAN_FILES)
 
@@ -233,26 +229,17 @@ LOCAL_GENERATED_SOURCES += $(intermediates)/vulkan/anv_entrypoints.c
 LOCAL_GENERATED_SOURCES += $(intermediates)/vulkan/anv_extensions.c
 LOCAL_GENERATED_SOURCES += $(intermediates)/vulkan/anv_extensions.h
 
-$(intermediates)/vulkan/anv_entrypoints.c:
+$(intermediates)/vulkan/anv_entrypoints.c: $(prebuilt_intermediates)/vulkan/anv_entrypoints.c
 	@mkdir -p $(dir $@)
-	$(VK_ENTRYPOINTS_SCRIPT) \
-		--xml $(MESA_TOP)/src/vulkan/registry/vk.xml \
-		--xml $(MESA_TOP)/src/vulkan/registry/vk_android_native_buffer.xml \
-		--outdir $(dir $@)
+	@cp -f $< $@
 
-$(intermediates)/vulkan/anv_extensions.c:
+$(intermediates)/vulkan/anv_extensions.c: $(prebuilt_intermediates)/vulkan/anv_extensions.c
 	@mkdir -p $(dir $@)
-	$(VK_EXTENSIONS_SCRIPT) \
-		--xml $(MESA_TOP)/src/vulkan/registry/vk.xml \
-		--xml $(MESA_TOP)/src/vulkan/registry/vk_android_native_buffer.xml \
-		--out-c $@
+	@cp -f $< $@
 
-$(intermediates)/vulkan/anv_extensions.h:
+$(intermediates)/vulkan/anv_extensions.h: $(prebuilt_intermediates)/vulkan/anv_extensions.h
 	@mkdir -p $(dir $@)
-	$(VK_EXTENSIONS_SCRIPT) \
-		--xml $(MESA_TOP)/src/vulkan/registry/vk.xml \
-		--xml $(MESA_TOP)/src/vulkan/registry/vk_android_native_buffer.xml \
-		--out-h $@
+	@cp -f $< $@
 
 LOCAL_HEADER_LIBRARIES := $(ANV_HEADER_LIBRARIES)
 LOCAL_STATIC_LIBRARIES := $(ANV_STATIC_LIBRARIES)
