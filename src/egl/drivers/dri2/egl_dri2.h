@@ -67,7 +67,7 @@ struct zwp_linux_dmabuf_v1;
 
 #include <system/window.h>
 #include <hardware/gralloc.h>
-#include <gralloc_drm_handle.h>
+#include <android/gralloc_handle.h>
 
 #endif /* HAVE_ANDROID_PLATFORM */
 

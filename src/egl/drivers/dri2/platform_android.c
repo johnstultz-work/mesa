@@ -167,7 +167,7 @@ get_native_buffer_fd(struct ANativeWindowBuffer *buf)
 static int
 get_native_buffer_name(struct ANativeWindowBuffer *buf)
 {
-   return gralloc_drm_get_gem_handle(buf->handle);
+   return 0;
 }
 
 static EGLBoolean
