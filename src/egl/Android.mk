@@ -60,6 +60,11 @@ LOCAL_SHARED_LIBRARIES := \
 	libgralloc_drm \
 	libsync
 
+ifeq ($(BOARD_USES_DRM_GRALLOC),true)
+	LOCAL_CFLAGS += -DHAVE_DRM_GRALLOC
+	LOCAL_SHARED_LIBRARIES += libgralloc_drm
+endif
+
 ifeq ($(filter $(MESA_ANDROID_MAJOR_VERSION), 4 5 6 7),)
 LOCAL_HEADER_LIBRARIES += libnativebase_headers
 LOCAL_STATIC_LIBRARIES += libarect
