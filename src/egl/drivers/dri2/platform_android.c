@@ -27,6 +27,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <cutils/properties.h>
 #include <errno.h>
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -1114,31 +1115,6 @@ droid_add_configs_for_visuals(_EGLDriver *drv, _EGLDisplay *dpy)
    return (config_count != 0);
 }
 
-enum {
-        /* perform(const struct gralloc_module_t *mod,
-         *         int op,
-         *         int *fd);
-         */
-        GRALLOC_MODULE_PERFORM_GET_DRM_FD = 0x40000002,
-};
-
-static int
-droid_open_device(struct dri2_egl_display *dri2_dpy)
-{
-   int fd = -1, err = -EINVAL;
-
-   if (dri2_dpy->gralloc->perform)
-         err = dri2_dpy->gralloc->perform(dri2_dpy->gralloc,
-                                          GRALLOC_MODULE_PERFORM_GET_DRM_FD,
-                                          &fd);
-   if (err || fd < 0) {
-      _eglLog(_EGL_WARNING, "fail to get drm fd");
-      fd = -1;
-   }
-
-   return (fd >= 0) ? fcntl(fd, F_DUPFD_CLOEXEC, 3) : -1;
-}
-
 static const struct dri2_egl_display_vtbl droid_display_vtbl = {
    .authenticate = NULL,
    .create_window_surface = droid_create_window_surface,
@@ -1199,6 +1175,137 @@ static const __DRIextension *droid_image_loader_extensions[] = {
 };
 
 EGLBoolean
+droid_load_driver(_EGLDisplay *disp)
+{
+   struct dri2_egl_display *dri2_dpy = disp->DriverData;
+   const char *err;
+
+   dri2_dpy->driver_name = loader_get_driver_for_fd(dri2_dpy->fd);
+   if (dri2_dpy->driver_name == NULL) {
+      err = "DRI2: failed to get driver name";
+      goto error;
+   }
+
+   dri2_dpy->is_render_node = drmGetNodeTypeFromFd(dri2_dpy->fd) == DRM_NODE_RENDER;
+
+   if (!dri2_dpy->is_render_node) {
+#ifdef HAVE_DRM_GRALLOC
+      dri2_dpy->loader_extensions = droid_dri2_loader_extensions;
+      if (!dri2_load_driver(disp)) {
+         err = "DRI2: failed to load driver";
+         goto error;
+      }
+   } else {
+      /* render nodes cannot use Gem names, and thus do not support
+       * the __DRI_DRI2_LOADER extension */
+      dri2_dpy->loader_extensions = droid_image_loader_extensions;
+      if (!dri2_load_driver_dri3(disp)) {
+         err = "DRI3: failed to load driver";
+         goto error;
+      }
+#else
+      err = "DRI2: handle is not for a render node";
+      goto error;
+   }
+
+   dri2_dpy->loader_extensions = droid_image_loader_extensions;
+   if (!dri2_load_driver_dri3(disp)) {
+      err = "DRI3: failed to load driver";
+      goto error;
+#endif
+   }
+
+   return EGL_TRUE;
+
+error:
+   free(dri2_dpy->driver_name);
+   dri2_dpy->driver_name = NULL;
+   return _eglError(EGL_NOT_INITIALIZED, err);
+}
+
+static int
+droid_probe_driver(int fd, void *data)
+{
+   _EGLDisplay *disp = data;
+   struct dri2_egl_display *dri2_dpy = disp->DriverData;
+   dri2_dpy->fd = fd;
+
+   if (!droid_load_driver(disp))
+      return false;
+
+   /* Since this probe can succeed, but another filter may failed
+      this string needs to be deallocated either way.
+      Once an FD has been found, this string will be set a second time. */
+   free(dri2_dpy->driver_name);
+   dri2_dpy->driver_name = NULL;
+   return true;
+}
+
+static int
+droid_open_device(_EGLDisplay *disp)
+{
+   const int MAX_DRM_DEVICES = 32;
+   int prop_set, num_devices, ret;
+   int fd = -1, fallback_fd = -1;
+
+   char vendor_name[PROPERTY_VALUE_MAX];
+   property_get("drm.gpu.vendor_name", vendor_name, NULL);
+
+   drm_match_t filters[] = {
+      {DRM_MATCH_DRIVER_NAME, .str = vendor_name },
+      {DRM_MATCH_FUNCTION, .func = { .fp = droid_probe_driver,
+                                     .data = disp }},
+   };
+   const int nbr_filters = sizeof(filters)/sizeof(drm_match_t);
+
+   drmDevicePtr devices[MAX_DRM_DEVICES];
+   num_devices = drmGetDevices2(0, devices, MAX_DRM_DEVICES);
+
+   if (num_devices < 0) {
+      _eglLog(_EGL_WARNING, "Failed to find any DRM devices");
+      return -1;
+   }
+
+   for (int i = 0; i < num_devices; i++) {
+      char *dev_path = devices[i]->nodes[DRM_NODE_RENDER];
+      fd = loader_open_device(dev_path);
+      if (fd == -1) {
+         _eglLog(_EGL_WARNING, "%s() Failed to open DRM device %s",
+                 __func__, dev_path);
+         continue;
+      }
+
+      if (drmHandleMatch(fd, filters, nbr_filters))
+         goto next;
+
+      break;
+
+next:
+      if (fallback_fd == -1) {
+         fallback_fd = fd;
+         fd = -1;
+      } else {
+         close(fd);
+         fd = -1;
+      }
+      continue;
+   }
+
+   if (fallback_fd < 0 && fd < 0) {
+      _eglLog(_EGL_WARNING, "Failed to open any DRM device");
+      return -1;
+   }
+
+   if (fd < 0) {
+      _eglLog(_EGL_WARNING, "Failed to open desired DRM device, using fallback");
+      return fallback_fd;
+   }
+
+   close(fallback_fd);
+   return fd;
+}
+
+EGLBoolean
 dri2_initialize_android(_EGLDriver *drv, _EGLDisplay *disp)
 {
    struct dri2_egl_display *dri2_dpy;
@@ -1225,45 +1332,15 @@ dri2_initialize_android(_EGLDriver *drv, _EGLDisplay *disp)
 
    disp->DriverData = (void *) dri2_dpy;
 
-   dri2_dpy->fd = droid_open_device(dri2_dpy);
+   dri2_dpy->fd = droid_open_device(disp);
    if (dri2_dpy->fd < 0) {
       err = "DRI2: failed to open device";
       goto cleanup;
    }
 
-   dri2_dpy->driver_name = loader_get_driver_for_fd(dri2_dpy->fd);
-   if (dri2_dpy->driver_name == NULL) {
-      err = "DRI2: failed to get driver name";
+   if (!droid_load_driver(disp)) {
+      err = "DRI2: failed to load driver";
       goto cleanup;
-   }
-
-   dri2_dpy->is_render_node = drmGetNodeTypeFromFd(dri2_dpy->fd) == DRM_NODE_RENDER;
-
-   if (!dri2_dpy->is_render_node) {
-#ifdef HAVE_DRM_GRALLOC
-      dri2_dpy->loader_extensions = droid_dri2_loader_extensions;
-      if (!dri2_load_driver(disp)) {
-         err = "DRI2: failed to load driver";
-         goto cleanup;
-      }
-   } else {
-      /* render nodes cannot use Gem names, and thus do not support
-       * the __DRI_DRI2_LOADER extension */
-      dri2_dpy->loader_extensions = droid_image_loader_extensions;
-      if (!dri2_load_driver_dri3(disp)) {
-         err = "DRI3: failed to load driver";
-         goto cleanup;
-      }
-#else
-      err = "DRI2: handle is not for a render node";
-      goto cleanup;
-   }
-
-   dri2_dpy->loader_extensions = droid_image_loader_extensions;
-   if (!dri2_load_driver_dri3(disp)) {
-      err = "DRI3: failed to load driver";
-      goto cleanup;
-#endif
    }
 
    if (!dri2_create_screen(disp)) {
