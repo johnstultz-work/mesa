@@ -75,8 +75,6 @@ $(intermediates)/nir/nir_opcodes.h: $(nir_opcodes_h_deps)
 	@mkdir -p $(dir $@)
 	$(hide) $(MESA_PYTHON2) $(nir_opcodes_h_gen) $< > $@
 
-$(LOCAL_PATH)/nir/nir.h: $(intermediates)/nir/nir_opcodes.h
-
 nir_opcodes_c_gen := $(LOCAL_PATH)/nir/nir_opcodes_c.py
 nir_opcodes_c_deps := \
 	$(LOCAL_PATH)/nir/nir_opcodes.py \
