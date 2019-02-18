@@ -128,5 +128,5 @@ MESA_UTIL_GENERATED_FILES = \
 	format/u_format_table.c
 
 XMLCONFIG_FILES := \
-	xmlconfig.c \
+	altxmlconfig.c \
 	xmlconfig.h
