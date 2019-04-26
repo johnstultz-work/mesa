@@ -88,6 +88,8 @@ ANV_INCLUDES := \
 ANV_SHARED_LIBRARIES := libdrm
 
 ifeq ($(filter $(MESA_ANDROID_MAJOR_VERSION), 4 5 6 7),)
+ANV_HEADER_LIBRARIES += libcutils_headers libnativebase_headers libsystem_headers
+ANV_STATIC_LIBRARIES += libarect
 ANV_SHARED_LIBRARIES += libnativewindow
 endif
 
@@ -106,6 +108,8 @@ LOCAL_C_INCLUDES := $(ANV_INCLUDES)
 
 LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_anv_entrypoints libmesa_genxml
 
+LOCAL_HEADER_LIBRARIES := $(ANV_HEADER_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := $(ANV_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := $(ANV_SHARED_LIBRARIES)
 
 include $(MESA_COMMON_MK)
@@ -126,6 +130,8 @@ LOCAL_C_INCLUDES := $(ANV_INCLUDES)
 
 LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_anv_entrypoints libmesa_genxml
 
+LOCAL_HEADER_LIBRARIES := $(ANV_HEADER_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := $(ANV_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := $(ANV_SHARED_LIBRARIES)
 
 include $(MESA_COMMON_MK)
@@ -146,6 +152,8 @@ LOCAL_C_INCLUDES := $(ANV_INCLUDES)
 
 LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_anv_entrypoints libmesa_genxml
 
+LOCAL_HEADER_LIBRARIES := $(ANV_HEADER_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := $(ANV_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := $(ANV_SHARED_LIBRARIES)
 
 include $(MESA_COMMON_MK)
@@ -166,6 +174,8 @@ LOCAL_C_INCLUDES := $(ANV_INCLUDES)
 
 LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_anv_entrypoints libmesa_genxml
 
+LOCAL_HEADER_LIBRARIES := $(ANV_HEADER_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := $(ANV_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := $(ANV_SHARED_LIBRARIES)
 
 include $(MESA_COMMON_MK)
@@ -186,6 +196,8 @@ LOCAL_C_INCLUDES := $(ANV_INCLUDES)
 
 LOCAL_WHOLE_STATIC_LIBRARIES := libmesa_anv_entrypoints libmesa_genxml
 
+LOCAL_HEADER_LIBRARIES := $(ANV_HEADER_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := $(ANV_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := $(ANV_SHARED_LIBRARIES)
 
 include $(MESA_COMMON_MK)
@@ -242,11 +254,21 @@ $(intermediates)/vulkan/anv_extensions.h:
 		--xml $(MESA_TOP)/src/vulkan/registry/vk_android_native_buffer.xml \
 		--out-h $@
 
+LOCAL_HEADER_LIBRARIES := $(ANV_HEADER_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := $(ANV_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := $(ANV_SHARED_LIBRARIES)
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
 
+#
+# FIXME: Defining a vulkan HAL for all TARGET_BOARD_PLATFORM, when it can
+#        only work for Intel platforms, is just wrong. For now, just omit
+#        module unless BOARD_GPU_DRIVERS contains i965. Even this is not
+#        correct, but it's difficult to determine what the 'right' list of
+#        TARGET_BOARD_PLATFORM to check really are..
+#
+ifneq ($(findstring i965,$(BOARD_GPU_DRIVERS)),)
 
 #
 # libvulkan_intel
@@ -289,7 +311,11 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
 	libmesa_intel_compiler \
 	libmesa_anv_entrypoints
 
+LOCAL_HEADER_LIBRARIES := $(ANV_HEADER_LIBRARIES) libhardware_headers
+LOCAL_STATIC_LIBRARIES := $(ANV_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := $(ANV_SHARED_LIBRARIES) libz libsync liblog
 
 include $(MESA_COMMON_MK)
 include $(BUILD_SHARED_LIBRARY)
+
+endif # BOARD_GPU_DRIVERS contains 'i965'

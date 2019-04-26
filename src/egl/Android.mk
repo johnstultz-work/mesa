@@ -61,6 +61,8 @@ LOCAL_SHARED_LIBRARIES := \
 	libsync
 
 ifeq ($(filter $(MESA_ANDROID_MAJOR_VERSION), 4 5 6 7),)
+LOCAL_HEADER_LIBRARIES += libnativebase_headers
+LOCAL_STATIC_LIBRARIES += libarect
 LOCAL_SHARED_LIBRARIES += libnativewindow
 endif
 
