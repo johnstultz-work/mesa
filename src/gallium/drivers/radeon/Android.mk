@@ -21,6 +21,8 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+ifeq ($(MESA_ENABLE_LLVM),true)
+
 LOCAL_PATH := $(call my-dir)
 
 # get C_SOURCES
@@ -34,10 +36,8 @@ LOCAL_STATIC_LIBRARIES := libmesa_amd_common
 LOCAL_SHARED_LIBRARIES := libdrm_radeon
 LOCAL_MODULE := libmesa_pipe_radeon
 
-ifeq ($(MESA_ENABLE_LLVM),true)
 LOCAL_CFLAGS += -DFORCE_BUILD_AMDGPU   # instructs LLVM to declare LLVMInitializeAMDGPU* functions
 $(call mesa-build-with-llvm)
-endif
 
 include $(GALLIUM_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
@@ -46,3 +46,5 @@ ifneq ($(HAVE_GALLIUM_RADEONSI),)
 $(eval GALLIUM_LIBS += $(LOCAL_MODULE))
 $(eval GALLIUM_SHARED_LIBS += $(LOCAL_SHARED_LIBRARIES))
 endif
+
+endif # MESA_ENABLE_LLVM==true
