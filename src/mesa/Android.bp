@@ -20,6 +20,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+build = ["Android.sources.bp"]
+
 //
 // The libmesa_glsl_utils libraries allow us to avoid a circular dependency
 // between core mesa and glsl.
@@ -44,3 +46,29 @@ cc_library_static {
     },
 }
 
+cc_library_static {
+    name: "libmesa_sse41",
+    defaults: ["mesa_common_defaults"],
+
+    srcs: [":mesa_x86_sse41_srcs"],
+
+    cflags: [
+        "-msse4.1",
+        "-mstackrealign",
+    ],
+    header_libs: ["libmesa_sse41_includes"],
+
+    enabled: false,
+    arch: {
+        x86: {
+            sse4_1: {
+                enabled: true,
+            },
+        },
+        x86_64: {
+            sse4_1: {
+                enabled: true,
+            },
+        },
+    },
+}
