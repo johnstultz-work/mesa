@@ -86,11 +86,12 @@ LOCAL_STATIC_LIBRARIES := \
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 intermediates := $(call local-generated-sources-dir)
+prebuilt_intermediates := $(MESA_TOP)/prebuilt-intermediates
 
-$(intermediates)/lima_nir_algebraic.c: $(LOCAL_PATH)/ir/lima_nir_algebraic.py
+$(intermediates)/lima_nir_algebraic.c: $(prebuilt_intermediates)/lima/lima_nir_algebraic.c
 	@echo "target Generated: $(PRIVATE_MODULE) <= $(notdir $(@))"
 	@mkdir -p $(dir $@)
-	$(hide) $(MESA_PYTHON2) $< -p $(MESA_TOP)/src/compiler/nir/ > $@
+	@cp -f $< $@
 
 LOCAL_GENERATED_SOURCES := \
 	$(intermediates)/lima_nir_algebraic.c \
